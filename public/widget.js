@@ -1,6 +1,6 @@
 class LiveChatWidget {
   constructor(options = {}) {
-    this.serverUrl = options.serverUrl || window.location.origin;
+    this.serverUrl = options.serverUrl || 'https://by-media-craft-live-chat.onrender.com';
     this.position = options.position || 'bottom-right';
     this.theme = options.theme || {
       primary: '#2196f3',
@@ -37,7 +37,7 @@ class LiveChatWidget {
 
     // Socket.io'yu yükle
     const script = document.createElement('script');
-    script.src = '/socket.io/socket.io.js';
+    script.src = this.serverUrl + '/socket.io/socket.io.js';
     script.onload = () => this.initializeSocket();
     document.head.appendChild(script);
 
