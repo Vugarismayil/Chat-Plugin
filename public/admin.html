@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Canlı Destek Admin Panel</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .login-container { max-width: 400px; margin: 100px auto; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .chat-container { display: none; }
+        input { width: calc(100% - 20px); padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #2196f3; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #1976d2; }
+        .chat-list { border: 1px solid #ddd; padding: 10px; margin: 20px 0; height: 400px; overflow-y: auto; border-radius: 4px; }
+        .message { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .visitor { background: #f0f0f0; }
+        .admin { background: #2196f3; color: white; margin-left: 20px; }
+        .chat-input { margin-top: 20px; display: flex; gap: 10px; }
+        .chat-input input { flex-grow: 1; margin: 0; }
+        .chat-input button { margin: 0; }
+        .new-chat { background: #4CAF50; color: white; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="login-container" id="loginForm">
+        <h2>Admin Girişi</h2>
+        <input type="text" id="username" placeholder="Kullanıcı adı" value="admin">
+        <input type="password" id="password" placeholder="Şifre" value="admin123">
+        <button onclick="login()">Giriş Yap</button>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+        <h2>Aktif Sohbetler</h2>
+        <div id="chatList" class="chat-list"></div>
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Mesajınızı yazın...">
+            <button onclick="sendAdminMessage()">Gönder</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const BASE_URL = window.location.origin;
+        const socket = io(BASE_URL);
+        let token = localStorage.getItem('adminToken');
+        let currentChatId = null;
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch(BASE_URL + '/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Giriş başarısız');
+                }
+
+                const data = await response.json();
+                if (data.token) {
+                    token = data.token;
+                    localStorage.setItem('adminToken', token);
+                    showChatInterface();
+                } else {
+                    alert('Giriş başarısız!');
+                }
+            } catch (error) {
+                console.error('Giriş hatası:', error);
+                alert('Giriş sırasında hata oluştu! Lütfen doğru adresten giriş yaptığınızdan emin olun: http://localhost:3000/admin');
+            }
+        }
+
+        function showChatInterface() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('chatContainer').style.display = 'block';
+        }
+
+        if (token) {
+            showChatInterface();
+        }
+
+        socket.on('chatStarted', ({ chatId, userData }) => {
+            currentChatId = chatId;
+            const chatList = document.getElementById('chatList');
+            const newChatDiv = document.createElement('div');
+            newChatDiv.className = 'new-chat';
+            newChatDiv.textContent = `Yeni sohbet başladı - Sayfa: ${userData?.title || 'Bilinmiyor'}`;
+            chatList.appendChild(newChatDiv);
+            chatList.scrollTop = chatList.scrollHeight;
+        });
+
+        socket.on('newMessage', (message) => {
+            const chatList = document.getElementById('chatList');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.sender === 'admin' ? 'admin' : 'visitor'}`;
+            messageDiv.textContent = message.text;
+            chatList.appendChild(messageDiv);
+            chatList.scrollTop = chatList.scrollHeight;
+        });
+
+        function sendAdminMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message && currentChatId) {
+                socket.emit('sendMessage', {
+                    chatId: currentChatId,
+                    message: message,
+                    sender: 'admin'
+                });
+                input.value = '';
+            } else if (!currentChatId) {
+                alert('Henüz aktif bir sohbet yok!');
+            }
+        }
+
+        // Enter tuşu ile mesaj gönderme
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendAdminMessage();
+            }
+        });
+    </script>
+</body>
+</html> 
